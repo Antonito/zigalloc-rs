@@ -9,14 +9,14 @@ fn main() {
 
     // Get configurable library name (default: "zigalloc")
     let lib_name = env::var("ZIG_LIB_NAME").unwrap_or_else(|_| "zigalloc".to_string());
-    let lib_filename = format!("lib{}.a", lib_name);
+    let lib_filename = format!("lib{lib_name}.a");
     let lib_dst = Path::new(&out_dir).join(&lib_filename);
 
     // Build with Zig
     match build_with_zig(&zig_alloc_dir, &lib_dst, &lib_filename) {
-        Ok(_) => println!("cargo::warning=Built {} with Zig", lib_filename),
-        Err(e) => {
-            eprintln!("Failed to build with Zig: {}", e);
+        Ok(_) => println!("cargo::warning=Built {lib_filename} with Zig"),
+        Err(err) => {
+            eprintln!("Failed to build with Zig: {err}");
             eprintln!("Please install Zig from https://ziglang.org/download/");
             panic!("Cannot build without Zig compiler");
         }
@@ -27,8 +27,8 @@ fn main() {
     println!("cargo::rerun-if-changed=../zig-alloc/build.zig");
 
     // Link the library
-    println!("cargo::rustc-link-search=native={}", out_dir);
-    println!("cargo::rustc-link-lib=static={}", lib_name);
+    println!("cargo::rustc-link-search=native={out_dir}");
+    println!("cargo::rustc-link-lib=static={lib_name}");
 }
 
 fn build_with_zig(zig_alloc_dir: &Path, lib_dst: &Path, lib_filename: &str) -> Result<(), String> {
@@ -42,7 +42,7 @@ fn build_with_zig(zig_alloc_dir: &Path, lib_dst: &Path, lib_filename: &str) -> R
         .args(["build", "-Doptimize=ReleaseSafe"])
         .current_dir(zig_alloc_dir)
         .output()
-        .map_err(|e| format!("Failed to execute zig build: {}", e))?;
+        .map_err(|err| format!("Failed to execute zig build: {err}"))?;
 
     if !output.status.success() {
         return Err(format!(
@@ -54,7 +54,7 @@ fn build_with_zig(zig_alloc_dir: &Path, lib_dst: &Path, lib_filename: &str) -> R
     // Copy the built library
     let lib_src = zig_alloc_dir.join("zig-out/lib").join(lib_filename);
     std::fs::copy(&lib_src, lib_dst)
-        .map_err(|e| format!("Failed to copy {}: {}", lib_filename, e))?;
+        .map_err(|err| format!("Failed to copy {lib_filename}: {err}"))?;
 
     Ok(())
 }

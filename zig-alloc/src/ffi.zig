@@ -21,12 +21,17 @@ pub const FfiAllocator = struct {
     allocator: std.mem.Allocator,
 
     /// Allocate memory with the specified size and alignment.
-    /// Returns null if allocation fails.
+    /// Returns null if allocation fails or if size is 0.
     pub fn alloc(
         self: *FfiAllocator,
         size: usize,
         alignment: std.mem.Alignment,
     ) ?*anyopaque {
+        // Return null for zero-size allocations
+        if (size == 0) {
+            return null;
+        }
+
         const mem = self.allocator.rawAlloc(
             size,
             alignment,

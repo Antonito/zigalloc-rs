@@ -37,22 +37,43 @@ pub fn build(b: *std.Build) void {
         .root_module = lib_mod,
     });
 
+    // Link against libc since we use std.heap.c_allocator
+    lib.linkLibC();
+
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
     // running `zig build`).
     b.installArtifact(lib);
 
-    // Creates a step for unit testing. This only builds the test executable
-    // but does not run it.
-    const lib_unit_tests = b.addTest(.{
-        .root_module = lib_mod,
-    });
-
-    const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
-
-    // Similar to creating the run step earlier, this exposes a `test` step to
-    // the `zig build --help` menu, providing a way for the user to request
-    // running the unit tests.
+    // Create test step
     const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_lib_unit_tests.step);
+
+    // Automatically discover test files in the tests directory
+    var tests_dir = std.fs.cwd().openDir("tests", .{ .iterate = true }) catch {
+        // No tests directory found or error accessing it, skip tests
+        return;
+    };
+    defer tests_dir.close();
+
+    var iterator = tests_dir.iterate();
+    while (iterator.next() catch null) |entry| {
+        if (entry.kind != .file) continue;
+        if (!std.mem.endsWith(u8, entry.name, ".zig")) continue;
+
+        const test_file_path = b.fmt("tests/{s}", .{entry.name});
+        const test_exe = b.addTest(.{
+            .root_source_file = b.path(test_file_path),
+            .target = target,
+            .optimize = optimize,
+        });
+
+        // Add the library module as a dependency
+        test_exe.root_module.addImport("zig-alloc", lib_mod);
+
+        // Link against libc for tests
+        test_exe.linkLibC();
+
+        const run_test = b.addRunArtifact(test_exe);
+        test_step.dependOn(&run_test.step);
+    }
 }
