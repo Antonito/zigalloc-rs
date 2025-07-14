@@ -1,3 +1,4 @@
+#![cfg(feature = "nightly")]
 #![feature(allocator_api)]
 
 use zigalloc::ZigDebugAllocator;

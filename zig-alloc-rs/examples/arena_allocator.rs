@@ -1,11 +1,9 @@
 //! Basic usage of the Arena allocator
 //! Run with: cargo run --example arena_allocator
-
-#![feature(allocator_api)]
-
-use zigalloc::ZigArenaSmpAllocator;
-
+#![cfg_attr(feature = "nightly", feature(allocator_api))]
+#[cfg(feature = "nightly")]
 fn main() {
+    use zigalloc::ZigArenaSmpAllocator;
     // Create the arena
     let arena = ZigArenaSmpAllocator::new();
 
@@ -20,4 +18,9 @@ fn main() {
 
     println!("Vec1: {:?}", vec1);
     println!("Vec2: {:?}", vec2);
+}
+
+#[cfg(not(feature = "nightly"))]
+fn main() {
+    println!("Skipped, run with a nightly toolchain instead");
 }

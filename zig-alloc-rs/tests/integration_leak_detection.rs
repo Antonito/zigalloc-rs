@@ -5,6 +5,7 @@
 //! 2. Integration tests run in separate processes, providing complete isolation
 //! 3. This allows us to safely install a SIGABRT handler without affecting other tests
 
+#![cfg(feature = "nightly")]
 #![feature(allocator_api)]
 
 use std::sync::atomic::{AtomicBool, Ordering};

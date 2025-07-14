@@ -1,11 +1,10 @@
 //! Basic usage of the Debug allocator for leak detection
 //! Run with: cargo run --example debug_allocator
-
-#![feature(allocator_api)]
-
-use zigalloc::ZigDebugAllocator;
-
+#![cfg_attr(feature = "nightly", feature(allocator_api))]
+#[cfg(feature = "nightly")]
 fn main() {
+    use zigalloc::ZigDebugAllocator;
+
     // Create the debug allocator
     let allocator = ZigDebugAllocator::new();
 
@@ -16,4 +15,9 @@ fn main() {
     }
 
     println!("Created Vec with {} elements: {:?}", vec.len(), vec);
+}
+
+#[cfg(not(feature = "nightly"))]
+fn main() {
+    println!("Skipped, run with a nightly toolchain instead");
 }

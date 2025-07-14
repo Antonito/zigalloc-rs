@@ -7,6 +7,11 @@ fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
     let zig_alloc_dir = Path::new(&manifest_dir).parent().unwrap().join("zig-alloc");
 
+    // Detect nightly toolchain and enable nightly feature
+    if is_nightly_toolchain() {
+        println!("cargo::rustc-cfg=feature=\"nightly\"");
+    }
+
     // Get configurable library name (default: "zigalloc")
     let lib_name = env::var("ZIG_LIB_NAME").unwrap_or_else(|_| "zigalloc".to_string());
     let lib_filename = format!("lib{lib_name}.a");
@@ -57,4 +62,20 @@ fn build_with_zig(zig_alloc_dir: &Path, lib_dst: &Path, lib_filename: &str) -> R
         .map_err(|err| format!("Failed to copy {lib_filename}: {err}"))?;
 
     Ok(())
+}
+
+fn is_nightly_toolchain() -> bool {
+    // Check if RUSTC_VERSION is set and contains "nightly"
+    if let Ok(version) = env::var("RUSTC_VERSION") {
+        return version.contains("nightly");
+    }
+
+    // Fallback: run rustc --version to check for nightly
+    if let Ok(output) = Command::new("rustc").arg("--version").output() {
+        if let Ok(version_str) = String::from_utf8(output.stdout) {
+            return version_str.contains("nightly");
+        }
+    }
+
+    false
 }

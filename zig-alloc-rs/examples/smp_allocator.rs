@@ -1,11 +1,10 @@
 //! Basic usage of the SMP allocator
 //! Run with: cargo run --example smp_allocator
-
-#![feature(allocator_api)]
-
-use zigalloc::ZigSmpAllocator;
-
+#![cfg_attr(feature = "nightly", feature(allocator_api))]
+#[cfg(feature = "nightly")]
 fn main() {
+    use zigalloc::ZigSmpAllocator;
+
     // Create the allocator
     let allocator = ZigSmpAllocator::new();
 
@@ -16,4 +15,9 @@ fn main() {
     }
 
     println!("Created Vec with {} elements: {:?}", vec.len(), vec);
+}
+
+#[cfg(not(feature = "nightly"))]
+fn main() {
+    println!("Skipped, run with a nightly toolchain instead");
 }

@@ -37,6 +37,7 @@ impl FfiAllocator {
     }
 
     /// Allocate some memory
+    #[cfg(feature = "nightly")]
     #[inline]
     pub(crate) fn allocate(
         &self,
@@ -70,6 +71,7 @@ impl FfiAllocator {
     }
 
     /// Dealloc some memory from the allocator
+    #[cfg(feature = "nightly")]
     #[inline]
     pub(crate) fn deallocate(&self, ptr: std::ptr::NonNull<u8>, layout: std::alloc::Layout) {
         let ptr = unsafe { std::mem::transmute::<std::ptr::NonNull<u8>, *mut u8>(ptr) };

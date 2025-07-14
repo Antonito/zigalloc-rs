@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        rust: [stable, nightly]
+        rust: [nightly-2025-02-28]
         include:
           - os: ubuntu-latest
             zig-target: x86_64-linux
@@ -29,6 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Setup nightly to run all tests
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:

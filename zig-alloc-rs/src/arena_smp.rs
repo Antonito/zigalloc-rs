@@ -1,5 +1,5 @@
 use crate::ffi::FfiAllocator;
-use std::alloc::{Allocator, GlobalAlloc};
+use std::alloc::GlobalAlloc;
 
 /// Zig Arena SMP Allocator
 pub struct ZigArenaSmpAllocator {
@@ -37,7 +37,8 @@ unsafe impl GlobalAlloc for ZigArenaSmpAllocator {
     }
 }
 
-unsafe impl Allocator for ZigArenaSmpAllocator {
+#[cfg(feature = "nightly")]
+unsafe impl std::alloc::Allocator for ZigArenaSmpAllocator {
     #[inline]
     fn allocate(
         &self,

@@ -1,5 +1,5 @@
 use crate::ffi::FfiAllocator;
-use std::alloc::{Allocator, GlobalAlloc};
+use std::alloc::GlobalAlloc;
 
 /// Zig Debug Allocator
 pub struct ZigDebugAllocator {
@@ -80,7 +80,8 @@ unsafe impl GlobalAlloc for ZigDebugAllocator {
     }
 }
 
-unsafe impl Allocator for ZigDebugAllocator {
+#[cfg(feature = "nightly")]
+unsafe impl std::alloc::Allocator for ZigDebugAllocator {
     #[inline]
     fn allocate(
         &self,
