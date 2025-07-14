@@ -14,7 +14,11 @@ fn main() {
 
     // Get configurable library name (default: "zigalloc")
     let lib_name = env::var("ZIG_LIB_NAME").unwrap_or_else(|_| "zigalloc".to_string());
-    let lib_filename = format!("lib{lib_name}.a");
+    let lib_filename = if cfg!(windows) {
+        format!("{lib_name}.lib")
+    } else {
+        format!("lib{lib_name}.a")
+    };
     let lib_dst = Path::new(&out_dir).join(&lib_filename);
 
     // Build with Zig
@@ -43,8 +47,18 @@ fn build_with_zig(zig_alloc_dir: &Path, lib_dst: &Path, lib_filename: &str) -> R
     }
 
     // Build the Zig library
+    let mut args = vec!["build", "-Doptimize=ReleaseSafe"];
+
+    if cfg!(target_os = "windows") && cfg!(target_arch = "x86_64") {
+        if cfg!(target_env = "msvc") {
+            args.push("-Dtarget=x86_64-windows-msvc");
+        } else if cfg!(target_env = "gnu") {
+            args.push("-Dtarget=x86_64-windows-gnu");
+        }
+    }
+
     let output = Command::new("zig")
-        .args(["build", "-Doptimize=ReleaseSafe"])
+        .args(&args)
         .current_dir(zig_alloc_dir)
         .output()
         .map_err(|err| format!("Failed to execute zig build: {err}"))?;
