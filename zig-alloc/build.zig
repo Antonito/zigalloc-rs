@@ -37,6 +37,10 @@ pub fn build(b: *std.Build) void {
         .root_module = lib_mod,
     });
 
+    // https://github.com/ziglang/zig/issues/6817#issuecomment-736129115
+    lib.bundle_compiler_rt = true;
+    lib.pie = true;
+
     // Link against libc since we use std.heap.c_allocator
     lib.linkLibC();
 
