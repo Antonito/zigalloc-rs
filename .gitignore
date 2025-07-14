@@ -1,0 +1,29 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# Zig
+zig-cache/
+zig-out/
+*.a
+*.so
+*.dylib
+*.dll
+
+# Build artifacts
+/build/
+/out/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

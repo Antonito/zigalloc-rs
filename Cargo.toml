@@ -1,0 +1,13 @@
+[workspace]
+members = ["zig-alloc-rs"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["Antoine Baché"]
+license = "MIT"
+repository = "https://github.com/Antonito/zigalloc-rs"
+description = "High-performance Zig memory allocators with Rust FFI bindings"
+keywords = ["allocator", "memory", "zig", "performance", "debug", "leak"]
+categories = ["memory-management", "api-bindings"]
