@@ -107,10 +107,10 @@ fn is_nightly_toolchain() -> bool {
     }
 
     // Fallback: run rustc --version to check for nightly
-    if let Ok(output) = Command::new("rustc").arg("--version").output() {
-        if let Ok(version_str) = String::from_utf8(output.stdout) {
-            return version_str.contains("nightly");
-        }
+    if let Ok(output) = Command::new("rustc").arg("--version").output()
+        && let Ok(version_str) = String::from_utf8(output.stdout)
+    {
+        return version_str.contains("nightly");
     }
 
     false
