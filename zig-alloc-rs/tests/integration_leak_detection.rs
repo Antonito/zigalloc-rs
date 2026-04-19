@@ -27,7 +27,7 @@ fn ensure_detects_leak_with_panic() {
             SIGABRT_CAUGHT.store(true, Ordering::SeqCst);
             std::process::exit(0); // Exit cleanly to indicate test success
         }
-        libc::signal(libc::SIGABRT, sigabrt_handler as usize);
+        libc::signal(libc::SIGABRT, sigabrt_handler as *const () as usize);
     }
 
     let allocator = ZigDebugAllocator::with_panic_on_leaks(true);
