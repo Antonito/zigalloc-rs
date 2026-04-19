@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        rust: [nightly-2025-02-28]
+        rust: [nightly-2026-04-01]
         include:
           - os: ubuntu-latest
             zig-target: x86_64-linux
@@ -39,7 +39,7 @@ jobs:
       - name: Install Zig
         uses: mlugg/setup-zig@v2
         with:
-          version: 0.14.1
+          version: 0.16.0
 
       - name: Cache Cargo
         uses: actions/cache@v4
