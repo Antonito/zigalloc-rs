@@ -30,7 +30,7 @@ pub const SmpAllocator = struct {
 };
 
 /// Create a new `SmpAllocator`
-export fn zig_smp_allocator_create() callconv(.C) ?*anyopaque {
-    const allocator = ffi.init_allocate(SmpAllocator) catch return null;
+export fn zig_smp_allocator_create() callconv(.c) ?*anyopaque {
+    const allocator = ffi.create(SmpAllocator) catch return null;
     return @ptrCast(allocator);
 }

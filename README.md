@@ -21,7 +21,7 @@ zigalloc = { git = "https://github.com/Antonito/zigalloc-rs" }
 
 **Requirements**:
 - Rust nightly (for `#![feature(allocator_api)]`)
-- zig 0.14.0
+- zig 0.16.0
 
 ## Available Allocators
 

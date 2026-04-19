@@ -22,7 +22,11 @@ pub const FfiAllocator = struct {
 
     /// Allocate memory with the specified size and alignment.
     /// Returns null if allocation fails or if size is 0.
-    pub fn alloc(
+    //
+    // `inline` is load-bearing: it makes `@returnAddress()` resolve to the
+    // FFI caller's frame, not this function's, so leak traces point at user
+    // code instead of ffi.zig. Same applies to `realloc` and `free` below.
+    pub inline fn alloc(
         self: *FfiAllocator,
         size: usize,
         alignment: std.mem.Alignment,
@@ -44,7 +48,7 @@ pub const FfiAllocator = struct {
     /// Reallocate memory to a new size.
     /// Attempts to resize in-place first, otherwise allocates new memory and copies data.
     /// Returns null if allocation fails.
-    pub fn realloc(
+    pub inline fn realloc(
         self: *FfiAllocator,
         memory: *anyopaque,
         old_size: usize,
@@ -58,32 +62,41 @@ pub const FfiAllocator = struct {
             return null;
         }
 
-        // Try to use the allocator's resize first (only if alignments match)
-        if (old_alignment.toByteUnits() == new_alignment.toByteUnits()) {
-            if (self.allocator.resize(@as([*]u8, @ptrCast(memory))[0..old_size], new_size)) {
+        // No prior allocation to resize — treat as a fresh alloc. Avoids
+        // handing a zero-length slice to rawResize/rawRemap, which not all
+        // allocator vtables handle.
+        if (old_size == 0) {
+            return self.alloc(new_size, new_alignment);
+        }
+
+        const old_bytes = @as([*]u8, @ptrCast(memory))[0..old_size];
+
+        // Try to resize/remap in place when alignments match.
+        if (old_alignment == new_alignment) {
+            if (self.allocator.rawResize(old_bytes, old_alignment, new_size, @returnAddress())) {
                 return memory;
+            }
+            if (self.allocator.rawRemap(old_bytes, old_alignment, new_size, @returnAddress())) |remapped| {
+                return @ptrCast(remapped);
             }
         }
 
-        // Allocate new memory
+        // Fall back to alloc + copy + free.
         const new_mem = self.alloc(new_size, new_alignment) orelse return null;
 
-        // Copy the minimum of old and new sizes to avoid buffer overrun
         const copy_size = @min(old_size, new_size);
         if (copy_size > 0) {
             const dest_bytes = @as([*]u8, @ptrCast(new_mem));
-            const src_bytes = @as([*]const u8, @ptrCast(memory));
-            @memcpy(dest_bytes[0..copy_size], src_bytes[0..copy_size]);
+            @memcpy(dest_bytes[0..copy_size], old_bytes[0..copy_size]);
         }
 
-        // Free old memory
         self.free(memory, old_size, old_alignment);
 
         return new_mem;
     }
 
     /// Free memory allocated by this allocator.
-    pub fn free(
+    pub inline fn free(
         self: *FfiAllocator,
         memory: *anyopaque,
         size: usize,
@@ -94,7 +107,7 @@ pub const FfiAllocator = struct {
     }
 
     /// Deinitialize the allocator and free the FfiAllocator struct itself.
-    pub fn deinit_allocated(self: *FfiAllocator) void {
+    pub fn destroy(self: *FfiAllocator) void {
         self.deinit();
         std.heap.c_allocator.destroy(self);
     }
@@ -104,19 +117,6 @@ pub const FfiAllocator = struct {
         self.deinit_parent(self.parent);
     }
 };
-
-/// Initialize a new FfiAllocator with the given parent and allocator.
-pub fn init(
-    parent: *anyopaque,
-    deinit_parent: *const fn (*anyopaque) void,
-    allocator: std.mem.Allocator,
-) FfiAllocator {
-    return .{
-        .parent = parent,
-        .deinit_parent = deinit_parent,
-        .allocator = allocator,
-    };
-}
 
 /// Create a heap-allocated FfiAllocator for the given allocator type.
 ///
@@ -132,40 +132,57 @@ pub fn init(
 /// - An `allocator(*T) std.mem.Allocator` method
 ///
 /// Returns an error if heap allocation fails.
-pub fn init_allocate(
+pub fn create(
     comptime T: type,
 ) std.mem.Allocator.Error!*FfiAllocator {
     const parent = try std.heap.c_allocator.create(T);
+    errdefer std.heap.c_allocator.destroy(parent);
+
     parent.* = T.init();
+    errdefer parent.deinit();
 
+    return wrapAllocated(T, parent);
+}
+
+/// Same as `create`, but passes a `T.Config` value into `T.init`.
+///
+/// The type T must have:
+/// - A `Config` declaration
+/// - An `init(T.Config) T` function for initialization
+/// - A `deinit(*T) void` method for cleanup
+/// - An `allocator(*T) std.mem.Allocator` method
+pub fn createWithConfig(
+    comptime T: type,
+    config: T.Config,
+) std.mem.Allocator.Error!*FfiAllocator {
+    const parent = try std.heap.c_allocator.create(T);
+    errdefer std.heap.c_allocator.destroy(parent);
+
+    parent.* = T.init(config);
+    errdefer parent.deinit();
+
+    return wrapAllocated(T, parent);
+}
+
+fn wrapAllocated(
+    comptime T: type,
+    parent: *T,
+) std.mem.Allocator.Error!*FfiAllocator {
     const self = try std.heap.c_allocator.create(FfiAllocator);
-
-    self.* = init(
-        @ptrCast(parent),
-        DeinitHandler(T).deinit,
-        parent.allocator(),
-    );
-
+    self.* = .{
+        .parent = @ptrCast(parent),
+        .deinit_parent = DeinitHandler(T).deinit,
+        .allocator = parent.allocator(),
+    };
     return self;
 }
 
 /// Converts an opaque pointer to a `*FfiAllocator`
 ///
 /// Returns null if the provided pointer is null.
-pub inline fn opaquePtrToFfiAllocator(ptr: ?*anyopaque) ?*align(8) FfiAllocator {
+pub inline fn opaquePtrToFfiAllocator(ptr: ?*anyopaque) ?*FfiAllocator {
     const non_null_ptr = ptr orelse return null;
-    return @alignCast(@ptrCast(non_null_ptr));
-}
-
-/// Converts an opaque pointer to a `*FfiAllocator`
-///
-/// Panics if the provided pointer is null.
-pub inline fn mustOpaquePtrToFfiAllocator(ptr: ?*anyopaque) *align(8) FfiAllocator {
-    const non_null_ptr = ptr orelse {
-        @panic("provided FfiAllocator pointer is null");
-    };
-
-    return @alignCast(@ptrCast(non_null_ptr));
+    return @ptrCast(@alignCast(non_null_ptr));
 }
 
 // Generic handler for deinit
@@ -173,7 +190,7 @@ fn DeinitHandler(comptime T: type) type {
     return struct {
         // Invokes deinit on the parent type and deallocates the structure
         fn deinit(ptr: *anyopaque) void {
-            const allocator: *align(@alignOf(T)) T = @alignCast(@ptrCast(ptr));
+            const allocator: *T = @ptrCast(@alignCast(ptr));
             allocator.deinit();
             std.heap.c_allocator.destroy(allocator);
         }

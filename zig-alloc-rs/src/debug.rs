@@ -22,12 +22,6 @@ const _: () = {
         std::mem::size_of::<DebugAllocatorConfig>() == 1,
         "DebugAllocatorConfig size must be 1 byte for FFI compatibility"
     );
-
-    const fn assert(condition: bool, message: &str) {
-        if !condition {
-            panic!("{}", message);
-        }
-    }
 };
 
 impl Default for DebugAllocatorConfig {

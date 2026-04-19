@@ -13,7 +13,6 @@ const DebugAllocatorConfig = std.heap.DebugAllocatorConfig{
 
     .safety = true,
     .thread_safe = true,
-    .MutexType = std.Thread.Mutex,
     .backing_allocator_zeroes = true,
     .canary = @truncate(0x9232a6ff85dff10f),
 
@@ -29,6 +28,12 @@ const DebugAllocatorConfig = std.heap.DebugAllocatorConfig{
 /// - Thread safety
 /// - Optional stack traces for allocations
 pub const DebugAllocator = struct {
+    /// Configuration options for `DebugAllocator.init`.
+    pub const Config = struct {
+        /// Whether to panic when the allocator is de-initialized and leaks are found.
+        panic_on_leaks: bool = true,
+    };
+
     /// Debug allocator
     debug_allocator: std.heap.DebugAllocator(DebugAllocatorConfig),
 
@@ -36,19 +41,11 @@ pub const DebugAllocator = struct {
     /// and we find memory leaks
     panic_on_exit_leaks: bool,
 
-    /// Initialize a debug allocator with default settings (panics on leaks).
-    pub fn init() DebugAllocator {
+    /// Initialize a debug allocator with the given configuration.
+    pub fn init(config: Config) DebugAllocator {
         return .{
-            .debug_allocator = std.heap.DebugAllocator(DebugAllocatorConfig){ .backing_allocator = std.heap.page_allocator },
-            .panic_on_exit_leaks = true,
-        };
-    }
-
-    /// Initialize a debug allocator with custom leak handling behavior.
-    pub fn initWithConfig(panic_on_leaks: bool) DebugAllocator {
-        return .{
-            .debug_allocator = std.heap.DebugAllocator(DebugAllocatorConfig){ .backing_allocator = std.heap.page_allocator },
-            .panic_on_exit_leaks = panic_on_leaks,
+            .debug_allocator = .{ .backing_allocator = std.heap.page_allocator },
+            .panic_on_exit_leaks = config.panic_on_leaks,
         };
     }
 
@@ -72,13 +69,6 @@ pub const DebugAllocator = struct {
     }
 };
 
-/// Deinit handler for DebugAllocator
-fn debugAllocatorDeinit(ptr: *anyopaque) void {
-    const allocator: *align(@alignOf(DebugAllocator)) DebugAllocator = @alignCast(@ptrCast(ptr));
-    allocator.deinit();
-    std.heap.c_allocator.destroy(allocator);
-}
-
 /// Configuration for creating debug allocators via FFI
 pub const DebugAllocatorCreateConfig = extern struct {
     /// Whether to panic when leaks are detected on deinit
@@ -92,30 +82,27 @@ comptime {
 
     // Verify struct size and alignment match expected C layout
     if (@sizeOf(DebugAllocatorCreateConfig) != DebugAllocatorCreateConfig_ExpectedSize) {
-        @compileError("DebugAllocatorCreateConfig size mismatch - expected " ++ DebugAllocatorCreateConfig_ExpectedSize ++ " byte, got " ++ @typeName(@TypeOf(@sizeOf(DebugAllocatorCreateConfig))));
+        @compileError(std.fmt.comptimePrint(
+            "DebugAllocatorCreateConfig size mismatch - expected {d} byte, got {d}",
+            .{ DebugAllocatorCreateConfig_ExpectedSize, @sizeOf(DebugAllocatorCreateConfig) },
+        ));
     }
 
     if (@alignOf(DebugAllocatorCreateConfig) != DebugAllocatorCreateConfig_ExpectedAlign) {
-        @compileError("DebugAllocatorCreateConfig alignment mismatch - expected " ++ DebugAllocatorCreateConfig_ExpectedAlign ++ " byte alignment, got " ++ @typeName(@TypeOf(@alignOf(DebugAllocatorCreateConfig))));
+        @compileError(std.fmt.comptimePrint(
+            "DebugAllocatorCreateConfig alignment mismatch - expected {d} byte alignment, got {d}",
+            .{ DebugAllocatorCreateConfig_ExpectedAlign, @alignOf(DebugAllocatorCreateConfig) },
+        ));
     }
 }
 
 /// Create a new `DebugAllocator` with the given configuration
-export fn zig_debug_allocator_create(config_ptr: ?*const DebugAllocatorCreateConfig) callconv(.C) ?*anyopaque {
-    if (config_ptr == null) {
-        return null;
-    }
+export fn zig_debug_allocator_create(config_ptr: ?*const DebugAllocatorCreateConfig) callconv(.c) ?*anyopaque {
+    const config = (config_ptr orelse return null).*;
 
-    const config = config_ptr.?.*;
-    const parent = std.heap.c_allocator.create(DebugAllocator) catch return null;
-    parent.* = DebugAllocator.initWithConfig(config.panic_on_leaks);
-
-    const allocator = std.heap.c_allocator.create(ffi.FfiAllocator) catch return null;
-    allocator.* = ffi.init(
-        @ptrCast(parent),
-        debugAllocatorDeinit,
-        parent.allocator(),
-    );
+    const allocator = ffi.createWithConfig(DebugAllocator, .{
+        .panic_on_leaks = config.panic_on_leaks,
+    }) catch return null;
 
     return @ptrCast(allocator);
 }

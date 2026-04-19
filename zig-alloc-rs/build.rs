@@ -75,6 +75,28 @@ fn build_with_zig(zig_alloc_dir: &Path, lib_dst: &Path, lib_filename: &str) -> R
     std::fs::copy(&lib_src, lib_dst)
         .map_err(|err| format!("Failed to copy {lib_filename}: {err}"))?;
 
+    // Zig 0.16's self-hosted archiver emits Mach-O archives with members
+    // padded to 2 bytes (BSD-traditional) and mode 0 permissions. Apple's
+    // ld64 rejects these at link time with "64-bit mach-o member '…' not
+    // 8-byte aligned". Running `ranlib` rewrites the archive with
+    // 8-byte-aligned members and fixes the link.
+    //
+    // Related upstream issues (all unresolved as of Zig 0.16.0):
+    //   - https://github.com/ziglang/zig/issues/23164  (bad permissions)
+    //   - https://github.com/ziglang/zig/issues/9828   (zig ar replacement)
+    //
+    // The ELF-side variant was fixed by https://github.com/ziglang/zig/pull/25826
+    // but the Mach-O archive writer was not touched.
+    if cfg!(target_os = "macos") {
+        let status = Command::new("ranlib")
+            .arg(lib_dst)
+            .status()
+            .map_err(|err| format!("Failed to execute ranlib: {err}"))?;
+        if !status.success() {
+            return Err(format!("ranlib failed with status: {status}"));
+        }
+    }
+
     Ok(())
 }
 
@@ -85,10 +107,10 @@ fn is_nightly_toolchain() -> bool {
     }
 
     // Fallback: run rustc --version to check for nightly
-    if let Ok(output) = Command::new("rustc").arg("--version").output() {
-        if let Ok(version_str) = String::from_utf8(output.stdout) {
-            return version_str.contains("nightly");
-        }
+    if let Ok(output) = Command::new("rustc").arg("--version").output()
+        && let Ok(version_str) = String::from_utf8(output.stdout)
+    {
+        return version_str.contains("nightly");
     }
 
     false
