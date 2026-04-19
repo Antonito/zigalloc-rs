@@ -4,7 +4,7 @@ const zig_alloc = @import("zig-alloc");
 const debug_allocator = zig_alloc.debug;
 
 test "DebugAllocator basic functionality" {
-    var allocator_instance = debug_allocator.DebugAllocator.initWithConfig(false); // Don't panic on leaks for tests
+    var allocator_instance = debug_allocator.DebugAllocator.init(.{ .panic_on_leaks = false }); // Don't panic on leaks for tests
     defer allocator_instance.deinit();
     
     const allocator = allocator_instance.allocator();
@@ -25,7 +25,7 @@ test "DebugAllocator basic functionality" {
 }
 
 test "DebugAllocator multiple allocations" {
-    var allocator_instance = debug_allocator.DebugAllocator.initWithConfig(false);
+    var allocator_instance = debug_allocator.DebugAllocator.init(.{ .panic_on_leaks = false });
     defer allocator_instance.deinit();
     
     const allocator = allocator_instance.allocator();
@@ -57,7 +57,7 @@ test "DebugAllocator multiple allocations" {
 }
 
 test "DebugAllocator realloc" {
-    var allocator_instance = debug_allocator.DebugAllocator.initWithConfig(false);
+    var allocator_instance = debug_allocator.DebugAllocator.init(.{ .panic_on_leaks = false });
     defer allocator_instance.deinit();
     
     const allocator = allocator_instance.allocator();
@@ -86,7 +86,7 @@ test "DebugAllocator realloc" {
 }
 
 test "DebugAllocator no leaks" {
-    var allocator_instance = debug_allocator.DebugAllocator.initWithConfig(false);
+    var allocator_instance = debug_allocator.DebugAllocator.init(.{ .panic_on_leaks = false });
     defer allocator_instance.deinit();
     
     const allocator = allocator_instance.allocator();
@@ -103,21 +103,21 @@ test "DebugAllocator no leaks" {
 }
 
 test "DebugAllocator alignment" {
-    var allocator_instance = debug_allocator.DebugAllocator.initWithConfig(false);
+    var allocator_instance = debug_allocator.DebugAllocator.init(.{ .panic_on_leaks = false });
     defer allocator_instance.deinit();
     
     const allocator = allocator_instance.allocator();
     
     // Test various alignments
-    const ptr1 = try allocator.alignedAlloc(u8, 1, 100);
+    const ptr1 = try allocator.alignedAlloc(u8, .@"1", 100);
     defer allocator.free(ptr1);
     try testing.expect(@intFromPtr(ptr1.ptr) % 1 == 0);
-    
-    const ptr2 = try allocator.alignedAlloc(u8, 8, 100);
+
+    const ptr2 = try allocator.alignedAlloc(u8, .@"8", 100);
     defer allocator.free(ptr2);
     try testing.expect(@intFromPtr(ptr2.ptr) % 8 == 0);
-    
-    const ptr3 = try allocator.alignedAlloc(u8, 16, 100);
+
+    const ptr3 = try allocator.alignedAlloc(u8, .@"16", 100);
     defer allocator.free(ptr3);
     try testing.expect(@intFromPtr(ptr3.ptr) % 16 == 0);
 }

@@ -34,7 +34,7 @@ pub const ArenaSmpAllocator = struct {
 };
 
 /// Create a new `ArenaSmpAllocator`
-export fn zig_arena_smp_allocator_create() callconv(.C) ?*anyopaque {
-    const allocator = ffi.init_allocate(ArenaSmpAllocator) catch return null;
+export fn zig_arena_smp_allocator_create() callconv(.c) ?*anyopaque {
+    const allocator = ffi.create(ArenaSmpAllocator) catch return null;
     return @ptrCast(allocator);
 }

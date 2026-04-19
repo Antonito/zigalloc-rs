@@ -6,8 +6,8 @@ const smp_allocator = zig_alloc.smp;
 
 test "FfiAllocator basic operations" {
     // Test with SMP allocator as backing allocator
-    const ffi_allocator = try ffi.init_allocate(smp_allocator.SmpAllocator);
-    defer ffi_allocator.deinit_allocated();
+    const ffi_allocator = try ffi.create(smp_allocator.SmpAllocator);
+    defer ffi_allocator.destroy();
     
     // Test allocation
     const ptr = ffi_allocator.alloc(100, .fromByteUnits(1));
@@ -29,8 +29,8 @@ test "FfiAllocator basic operations" {
 }
 
 test "FfiAllocator alignment" {
-    const ffi_allocator = try ffi.init_allocate(smp_allocator.SmpAllocator);
-    defer ffi_allocator.deinit_allocated();
+    const ffi_allocator = try ffi.create(smp_allocator.SmpAllocator);
+    defer ffi_allocator.destroy();
     
     // Test various alignments
     const ptr1 = ffi_allocator.alloc(100, .fromByteUnits(1));
@@ -56,8 +56,8 @@ test "FfiAllocator alignment" {
 }
 
 test "FfiAllocator realloc grow" {
-    const ffi_allocator = try ffi.init_allocate(smp_allocator.SmpAllocator);
-    defer ffi_allocator.deinit_allocated();
+    const ffi_allocator = try ffi.create(smp_allocator.SmpAllocator);
+    defer ffi_allocator.destroy();
     
     // Initial allocation
     const ptr = ffi_allocator.alloc(10, .fromByteUnits(1));
@@ -88,8 +88,8 @@ test "FfiAllocator realloc grow" {
 }
 
 test "FfiAllocator realloc shrink" {
-    const ffi_allocator = try ffi.init_allocate(smp_allocator.SmpAllocator);
-    defer ffi_allocator.deinit_allocated();
+    const ffi_allocator = try ffi.create(smp_allocator.SmpAllocator);
+    defer ffi_allocator.destroy();
     
     // Initial allocation
     const ptr = ffi_allocator.alloc(20, .fromByteUnits(1));
@@ -119,9 +119,23 @@ test "FfiAllocator realloc shrink" {
     }
 }
 
+test "FfiAllocator realloc from zero" {
+    const ffi_allocator = try ffi.create(smp_allocator.SmpAllocator);
+    defer ffi_allocator.destroy();
+
+    // Pointer is meaningless when old_size == 0; pass a dangling non-null.
+    var dummy: u8 = 0;
+    const new_ptr = ffi_allocator.realloc(&dummy, 0, .fromByteUnits(1), 16, .fromByteUnits(1));
+    try testing.expect(new_ptr != null);
+
+    if (new_ptr) |p| {
+        ffi_allocator.free(p, 16, .fromByteUnits(1));
+    }
+}
+
 test "FfiAllocator realloc to zero" {
-    const ffi_allocator = try ffi.init_allocate(smp_allocator.SmpAllocator);
-    defer ffi_allocator.deinit_allocated();
+    const ffi_allocator = try ffi.create(smp_allocator.SmpAllocator);
+    defer ffi_allocator.destroy();
     
     // Initial allocation
     const ptr = ffi_allocator.alloc(10, .fromByteUnits(1));
@@ -135,8 +149,8 @@ test "FfiAllocator realloc to zero" {
 }
 
 test "FfiAllocator edge cases" {
-    const ffi_allocator = try ffi.init_allocate(smp_allocator.SmpAllocator);
-    defer ffi_allocator.deinit_allocated();
+    const ffi_allocator = try ffi.create(smp_allocator.SmpAllocator);
+    defer ffi_allocator.destroy();
     
     // Test zero-size allocation (should return null)
     const zero_ptr = ffi_allocator.alloc(0, .fromByteUnits(1));
@@ -156,8 +170,8 @@ test "opaquePtrToFfiAllocator null handling" {
 }
 
 test "opaquePtrToFfiAllocator valid pointer" {
-    const ffi_allocator = try ffi.init_allocate(smp_allocator.SmpAllocator);
-    defer ffi_allocator.deinit_allocated();
+    const ffi_allocator = try ffi.create(smp_allocator.SmpAllocator);
+    defer ffi_allocator.destroy();
     
     const ptr: *anyopaque = @ptrCast(ffi_allocator);
     const result = ffi.opaquePtrToFfiAllocator(ptr);

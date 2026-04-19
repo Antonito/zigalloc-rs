@@ -86,13 +86,13 @@ test "ArenaSmpAllocator alignment" {
     const allocator = allocator_instance.allocator();
     
     // Test various alignments
-    const ptr1 = try allocator.alignedAlloc(u8, 1, 100);
+    const ptr1 = try allocator.alignedAlloc(u8, .@"1", 100);
     try testing.expect(@intFromPtr(ptr1.ptr) % 1 == 0);
-    
-    const ptr2 = try allocator.alignedAlloc(u8, 8, 100);
+
+    const ptr2 = try allocator.alignedAlloc(u8, .@"8", 100);
     try testing.expect(@intFromPtr(ptr2.ptr) % 8 == 0);
-    
-    const ptr3 = try allocator.alignedAlloc(u8, 16, 100);
+
+    const ptr3 = try allocator.alignedAlloc(u8, .@"16", 100);
     try testing.expect(@intFromPtr(ptr3.ptr) % 16 == 0);
 }
 

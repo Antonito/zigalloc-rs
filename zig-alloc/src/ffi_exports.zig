@@ -7,33 +7,34 @@
 const ffi = @import("ffi.zig");
 
 /// Destroy an allocator
-export fn zig_ffi_allocator_destroy(allocator_ptr: *anyopaque) callconv(.C) void {
-    const allocator = ffi.mustOpaquePtrToFfiAllocator(allocator_ptr);
-    allocator.deinit_allocated();
+export fn zig_ffi_allocator_destroy(allocator_ptr: ?*anyopaque) callconv(.c) void {
+    const allocator = ffi.opaquePtrToFfiAllocator(allocator_ptr) orelse return;
+    allocator.destroy();
 }
 
 /// Alloc some memory via a Zig allocator
 export fn zig_ffi_allocator_alloc(
-    allocator_ptr: *anyopaque,
+    allocator_ptr: ?*anyopaque,
     size: usize,
     alignment: usize,
-) callconv(.C) ?*anyopaque {
+) callconv(.c) ?*anyopaque {
     const allocator = ffi.opaquePtrToFfiAllocator(allocator_ptr) orelse return null;
     return allocator.alloc(size, .fromByteUnits(alignment));
 }
 
 /// Re-alloc some memory via a Zig allocator
 export fn zig_ffi_allocator_realloc(
-    allocator_ptr: *anyopaque,
-    memory: *anyopaque,
+    allocator_ptr: ?*anyopaque,
+    memory: ?*anyopaque,
     old_size: usize,
     old_alignment: usize,
     new_size: usize,
     new_alignment: usize,
-) callconv(.C) ?*anyopaque {
+) callconv(.c) ?*anyopaque {
     const allocator = ffi.opaquePtrToFfiAllocator(allocator_ptr) orelse return null;
+    const mem = memory orelse return null;
     return allocator.realloc(
-        memory,
+        mem,
         old_size,
         .fromByteUnits(old_alignment),
         new_size,
@@ -43,11 +44,12 @@ export fn zig_ffi_allocator_realloc(
 
 /// Dealloc a pointer allocated via a Zig allocator
 export fn zig_ffi_allocator_dealloc(
-    allocator_ptr: *anyopaque,
-    memory: *anyopaque,
+    allocator_ptr: ?*anyopaque,
+    memory: ?*anyopaque,
     size: usize,
     alignment: usize,
-) callconv(.C) void {
+) callconv(.c) void {
     const allocator = ffi.opaquePtrToFfiAllocator(allocator_ptr) orelse return;
-    allocator.free(memory, size, .fromByteUnits(alignment));
+    const mem = memory orelse return;
+    allocator.free(mem, size, .fromByteUnits(alignment));
 }

@@ -4,8 +4,8 @@ const zig_alloc = @import("zig-alloc");
 
 test "Integration: FFI layer basic functionality" {
     // Test that we can create and use FfiAllocators through the direct API
-    const smp_ffi = try zig_alloc.ffi.init_allocate(zig_alloc.smp.SmpAllocator);
-    defer smp_ffi.deinit_allocated();
+    const smp_ffi = try zig_alloc.ffi.create(zig_alloc.smp.SmpAllocator);
+    defer smp_ffi.destroy();
     
     // Test allocation and deallocation
     const ptr = smp_ffi.alloc(100, std.mem.Alignment.fromByteUnits(1));
@@ -21,7 +21,7 @@ test "Integration: All allocator types can be created" {
     var smp_allocator = zig_alloc.smp.SmpAllocator.init();
     defer smp_allocator.deinit();
     
-    var debug_allocator = zig_alloc.debug.DebugAllocator.initWithConfig(false);
+    var debug_allocator = zig_alloc.debug.DebugAllocator.init(.{ .panic_on_leaks = false });
     defer debug_allocator.deinit();
     
     var arena_allocator = zig_alloc.arena_smp.ArenaSmpAllocator.init();
